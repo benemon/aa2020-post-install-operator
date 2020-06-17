@@ -1,0 +1,141 @@
+---
+# tasks file for afterthought
+- name: create working directory
+  file:
+    path: "/tmp/{{ role_name }}"
+    state: directory
+
+- name: get ca
+  get_url:
+    url: "{{ custom_certificates.ca }}"
+    dest: "/tmp/{{ role_name }}/ca.crt"
+    validate_certs: no
+
+- name: slurp ca
+  slurp:
+    src: "/tmp/{{ role_name }}/ca.crt"
+  register: ca_crt
+
+- name: generate ca configmap from template
+  template:
+    src: custom-ca-cm.yml.j2
+    dest: "/tmp/{{ role_name }}/custom-ca-cm.yml"
+
+- name: create configmap from ca
+  k8s:
+    state: present
+    src: "/tmp/{{ role_name }}/custom-ca-cm.yml"
+
+- name: patch ca into proxy config for auth
+  k8s:
+    state: present
+    validate_certs: no
+    definition:
+      apiVersion: config.openshift.io/v1
+      kind: Proxy
+      metadata:
+        name: cluster
+      spec:
+        trustedCA:
+          name: custom-ca
+
+- name: get wildcard cert
+  get_url:
+    url: "{{ custom_certificates.certificate_host }}/{{ cluster_name }}/{{ cluster_name }}_apps.crt"
+    dest: "/tmp/{{ role_name }}/apps.crt"
+    validate_certs: no
+
+- name: slurp wildcard cert
+  slurp:
+    src: "/tmp/{{ role_name }}/apps.crt"
+  register: apps_crt
+
+- name: get wildcard cert key
+  get_url:
+    url: "{{ custom_certificates.certificate_host }}/{{ cluster_name }}/{{ cluster_name }}_apps.key"
+    dest: "/tmp/{{ role_name }}/apps.key"
+    validate_certs: no
+
+- name: slurp wildcard cert key
+  slurp:
+    src: "/tmp/{{ role_name }}/apps.key"
+  register: apps_key
+
+- name: generate wildcard cert secret from template
+  template:
+    src: custom-apps-crt-secret.yml.j2
+    dest: "/tmp/{{ role_name }}/custom-apps-crt-secret.yml"
+
+- name: create wildcard cert secret
+  k8s:
+    state: present
+    src: "/tmp/{{ role_name }}/custom-apps-crt-secret.yml"
+
+- name: patch router to use wildcard cert
+  k8s:
+    state: present
+    validate_certs: no
+    definition:
+      apiVersion: operator.openshift.io/v1
+      kind: IngressController
+      metadata:
+        name: default
+        namespace: openshift-ingress-operator
+      spec:
+        defaultCertificate:
+          name: apps-cert
+
+- name: get api cert
+  get_url:
+    url: "{{ custom_certificates.certificate_host }}/{{ cluster_name }}/{{ cluster_name }}_api.crt"
+    dest: "/tmp/{{ role_name }}/api.crt"
+    validate_certs: no
+
+- name: slurp api cert
+  slurp:
+    src: "/tmp/{{ role_name }}/api.crt"
+  register: api_crt
+
+- name: get api cert key
+  get_url:
+    url: "{{ custom_certificates.certificate_host }}/{{ cluster_name }}/{{ cluster_name }}_api.key"
+    dest: "/tmp/{{ role_name }}/api.key"
+    validate_certs: no
+
+- name: slurp api cert key
+  slurp:
+    src: "/tmp/{{ role_name }}/api.key"
+  register: api_key
+
+- name: generate api cert secret from template
+  template:
+    src: custom-api-crt-secret.yml.j2
+    dest: "/tmp/{{ role_name }}/custom-api-crt-secret.yml"
+
+- name: create api cert secret
+  k8s:
+    state: present
+    src: "/tmp/{{ role_name }}/custom-api-crt-secret.yml"
+
+- name: patch api server to use custom cert
+  k8s:
+    state: present
+    validate_certs: no
+    definition:
+      apiVersion: config.openshift.io/v1
+      kind: APIServer
+      metadata:
+        name: cluster
+      spec:
+        servingCerts:
+          namedCertificates:
+            - names:
+                - "api.{{ cluster_name }}.demolab.local"
+              servingCertificate:
+                name: api-cert
+
+- name: remove working directory
+  file:
+    path: "/tmp/{{ role_name }}"
+    state: absent
+  when: not debug.enabled

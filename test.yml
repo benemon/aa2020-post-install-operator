@@ -1,0 +1,21 @@
+---
+- hosts: localhost
+  vars:
+    - vault_token: s.Mge6v8eapUE7Jkmd19xOzIFW
+      vault_role_id: c901fda4-bc17-fd88-3a53-7dc92ef541ef
+      vault_role_secret_id: 1ffa33c7-921a-d83f-fa91-2e09d7a29049 
+      vault_url: https://infra-vault.demolab.local
+      vault_path: demolab
+  tasks:
+    - name: set facts or whatever
+      set_fact:
+         ldap: "{{ lookup('hashi_vault', 'secret=kv/data/{{ vault_path }}/ldap/ auth_method=approle role_id={{ vault_role_id }} secret_id={{ vault_role_secret_id }} url={{ vault_url }}' )}}"
+        #  sso: "{{ lookup('hashi_vault', 'secret=kv/data/{{ vault_path }}/sso/ token={{ vault_token }} url={{ vault_url }}' )}}"
+
+    - name: ldap
+      debug:
+        msg: "{{ ldap.data }}"
+
+    # - name: sso
+    #   debug:
+    #      msg: "{{ sso.data }}"        

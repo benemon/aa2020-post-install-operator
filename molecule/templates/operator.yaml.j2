@@ -1,0 +1,40 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: post-install-operator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: post-install-operator
+  template:
+    metadata:
+      labels:
+        name: post-install-operator
+    spec:
+      serviceAccountName: post-install-operator
+      containers:
+        - name: post-install-operator
+          # Replace this with the built image name
+          image: "{{ image }}"
+          imagePullPolicy: "{{ pull_policy }}"
+          volumeMounts:
+          - mountPath: /tmp/ansible-operator/runner
+            name: runner
+          env:
+            - name: WATCH_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: OPERATOR_NAME
+              value: "post-install-operator"
+            - name: ANSIBLE_GATHERING
+              value: explicit
+      volumes:
+        - name: runner
+          emptyDir: {}

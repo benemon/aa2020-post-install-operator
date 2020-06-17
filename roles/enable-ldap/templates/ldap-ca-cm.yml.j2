@@ -1,0 +1,8 @@
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: ca-config-map
+  namespace: openshift-config 
+data:
+  ca.crt: | 
+    {{ ca_crt['content'] | b64decode | indent(width=4, indentfirst=False) }}

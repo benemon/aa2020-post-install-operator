@@ -1,0 +1,32 @@
+apiVersion: postinstall.openshift.demolab.local/v1
+kind: PostInstall
+metadata:
+  name: example-default
+spec:
+  clusterName: mycluster
+  vault:
+    roleId:
+    secretId: 
+    url:
+  ldap:
+    enabled: true
+    vaultPath: 
+    ca: 
+  sso:
+    enabled: false
+    vaultPath: 
+  nfs:
+    enabled: false
+  registry:
+    managed: true
+  customCertificates:
+    enabled: true
+    ca: 
+    certificateHost: 
+  user:
+    clusterAdmin: true
+    id: myuser
+  kubeadmin:
+    disabled: true
+  debug:
+    enabled: false

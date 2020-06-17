@@ -1,0 +1,82 @@
+---
+# tasks file for afterthought
+
+- name: create working directory
+  file:
+    path: "/tmp/{{ role_name }}"
+    state: directory
+
+- name: lookup ldap secrets from hashicorp vault
+  set_fact:  
+    ldap_secret: "{{ lookup('hashi_vault', 'secret=kv/data/{{ ldap.vault_path }} auth_method=approle role_id={{ vault.role_id }} secret_id={{ vault.secret_id }} url={{ vault.url }} validate_certs=false' )}}"    
+  no_log: true    
+
+- name: generate ldap secret from template
+  template:
+    src: ldap-secret.yml.j2
+    dest: "/tmp/{{ role_name }}/ldap-secret.yml"
+  no_log: true
+
+- name: create ldap secret
+  k8s:
+    state: present
+    src: "/tmp/{{ role_name }}/ldap-secret.yml"
+  no_log: true
+
+- name: get ca
+  get_url:
+    url: "{{ ldap.ca }}"
+    dest: "/tmp/{{ role_name }}/ca.crt"
+    validate_certs: no
+
+- name: slurp ca
+  slurp:
+    src: "/tmp/{{ role_name }}/ca.crt"
+  register: ca_crt
+
+- name: generate ca configmap from template
+  template:
+    src: ldap-ca-cm.yml.j2
+    dest: "/tmp/{{ role_name }}/ldap-ca-cm.yml"
+
+- name: create configmap from ca
+  k8s:
+    state: present
+    src: "/tmp/{{ role_name }}/ldap-ca-cm.yml"
+    
+- name: update cluster oauth
+  k8s:
+    state: present
+    definition:
+      apiVersion: config.openshift.io/v1
+      kind: OAuth
+      metadata:
+        name: cluster 
+      spec:
+        identityProviders:
+        - name: ldap
+          mappingMethod: add 
+          type: LDAP
+          ldap:
+            attributes:
+              id: 
+              - dn
+              email: 
+              - mail
+              name: 
+              - cn
+              preferredUsername: 
+              - uid
+            bindDN: "{{ ldap_secret.data.bind_dn }}" 
+            bindPassword: 
+              name: ldap-secret
+            ca: 
+              name: ca-config-map
+            insecure: false 
+            url: "{{ ldap_secret.data.url }}"
+
+- name: remove working directory
+  file:
+    path: "/tmp/{{ role_name }}"
+    state: absent
+  when: debug.enabled

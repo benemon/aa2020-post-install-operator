@@ -1,0 +1,38 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: post-install-operator
+  namespace: demolab-post-install-operator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: post-install-operator
+  template:
+    metadata:
+      labels:
+        name: post-install-operator
+    spec:
+      serviceAccountName: post-install-operator
+      containers:
+        - name: post-install-operator
+          image: "quay.io/bholmes/post-install-operator:demolab"
+          imagePullPolicy: "Always"
+          volumeMounts:
+          - mountPath: /tmp/ansible-operator/runner
+            name: runner
+          env:
+            - name: WATCH_NAMESPACE
+              value: ""
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: OPERATOR_NAME
+              value: "post-install-operator"
+            - name: ANSIBLE_GATHERING
+              value: explicit
+      volumes:
+        - name: runner
+          emptyDir: {}

@@ -1,0 +1,16 @@
+---
+# tasks file for afterthought
+
+- name: patch registry
+  k8s:
+    state: present
+    validate_certs: no
+    definition:
+      apiVersion: imageregistry.operator.openshift.io/v1
+      kind: Config
+      metadata:
+        name: cluster
+      spec:
+        storage:
+            emptyDir: {}
+        managementState: Managed

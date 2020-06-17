@@ -1,0 +1,33 @@
+---
+- hosts: localhost
+  tasks:
+    - block:
+      - include_role:
+          name: patch-registry
+        when: registry.managed
+      ignore_errors: yes
+    - block:      
+      - include_role:
+          name: enable-ldap
+        when: ldap.enabled and not sso.enabled
+      ignore_errors: yes        
+    - block:    
+      - include_role:
+          name: enable-sso
+        when: sso.enabled and not ldap.enabled
+      ignore_errors: yes        
+    - block:      
+      - include_role:
+          name: enable-custom-certificates
+        when: custom_certificates.enabled
+      ignore_errors: yes        
+    - block:      
+      - include_role:
+          name: add-user-as-clusteradmin
+        when: user.cluster_admin
+      ignore_errors: yes        
+    - block:      
+      - include_role:
+          name: disable-kubeadmin
+        when: kubeadmin.disabled and (sso.enabled or ldap.enabled)
+      ignore_errors: yes        

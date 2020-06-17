@@ -1,0 +1,55 @@
+---
+- name: create working directory
+  file:
+    path: "/tmp/{{ role_name }}"
+    state: directory
+
+- name: lookup sso secrets from hashicorp vault
+  set_fact:  
+    sso_secret: "{{ lookup('hashi_vault', 'secret=kv/data/{{ sso.vault_path }} auth_method=approle role_id={{ vault.role_id }} secret_id={{ vault.secret_id }} url={{ vault.url }} validate_certs=false' )}}"    
+  no_log: true    
+
+- name: generate sso client secret from template
+  template:
+    src: sso-client-secret.yml.j2
+    dest: "/tmp/{{ role_name }}/sso-client-secret.yml"
+  no_log: true
+
+- name: create sso client secret
+  k8s:
+    state: present
+    src: "/tmp/{{ role_name }}/sso-client-secret.yml" 
+  no_log: true     
+
+- name: update cluster oauth
+  k8s:
+    state: present
+    definition:
+      apiVersion: config.openshift.io/v1
+      kind: OAuth
+      metadata:
+        name: cluster 
+      spec:
+        identityProviders:
+          - mappingMethod: add
+            name: rhsso
+            openID:
+              claims:
+                email:
+                  - email
+                name:
+                  - name
+                preferredUsername:
+                  - preferred_username
+              clientID: "{{ sso_secret.data.client_id }}"
+              clientSecret:
+                name: sso-client-secret
+              extraScopes: []
+              issuer: "{{ sso_secret.data.issuer }}"
+            type: OpenID        
+
+- name: remove working directory
+  file:
+    path: "/tmp/{{ role_name }}"
+    state: absent
+  when: not debug.enabled

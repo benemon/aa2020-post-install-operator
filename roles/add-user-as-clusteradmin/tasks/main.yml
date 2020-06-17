@@ -1,0 +1,22 @@
+---
+# tasks file for afterthought
+- name: create working directory
+  file:
+    path: "/tmp/{{ role_name }}"
+    state: directory
+
+- name: generate clusterrolebinding from template
+  template:
+    src: clusteradmin-crb.yml.j2
+    dest: "/tmp/{{ role_name }}/clusteradmin-crb.yml"
+
+- name: create clusteradmin clusterrolebinding
+  k8s:
+    state: present
+    src: "/tmp/{{ role_name }}/clusteradmin-crb.yml"
+
+- name: remove working directory
+  file:
+    path: "/tmp/{{ role_name }}"
+    state: absent
+  when: not debug.enabled
